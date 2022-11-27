@@ -6,6 +6,28 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
+library(tidyverse)
+```
 
+## Problem 2
+Load the raw dataset
+```{r}
+raw_data = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
+```
+
+Tidy the data
+```{r}
+homicide_df =
+  raw_data %>%
+  janitor::clean_names() %>%
+  mutate(
+    city_state = str_c(city, state, sep = ","),
+    resolution = case_when(
+      disposition == "Closed without arrest" ~ "unsolved",
+      disposition == "Open/No arrest" ~ "unsolve",
+      disposition == "Closed by arrest" ~"solved"
+    )) %>%
+  relocate(city_state) %>%
+  filter(!(city_state %in% c("Dallas, TX", "Phoenix, AZ", " Kansas City, MO", "Tulsa, AL")))
 ```
 
