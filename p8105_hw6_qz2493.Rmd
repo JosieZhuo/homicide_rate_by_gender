@@ -15,7 +15,7 @@ Load the raw dataset
 raw_data = read_csv("https://raw.githubusercontent.com/washingtonpost/data-homicides/master/homicide-data.csv")
 ```
 
-Tidy the data
+Tidy the dataset
 ```{r}
 homicide_df =
   raw_data %>%
@@ -23,11 +23,80 @@ homicide_df =
   mutate(
     city_state = str_c(city, state, sep = ","),
     resolution = case_when(
-      disposition == "Closed without arrest" ~ "unsolved",
-      disposition == "Open/No arrest" ~ "unsolve",
-      disposition == "Closed by arrest" ~"solved"
-    )) %>%
+      disposition == "Closed without arrest" ~ "unresolved",
+      disposition == "Open/No arrest" ~ "unresolve",
+      disposition == "Closed by arrest" ~"resolved"
+    ),
+    resolved = as.numeric(disposition == "Closed by arrest"),
+    resolution = as.factor(resolution),
+    victim_age = as.numeric(victim_age)) %>%
   relocate(city_state) %>%
-  filter(!(city_state %in% c("Dallas, TX", "Phoenix, AZ", " Kansas City, MO", "Tulsa, AL")))
+  filter(
+    !(city_state %in% c("Dallas,TX", "Phoenix,AZ", " Kansas City,MO", "Tulsa,AL")) &
+    victim_race %in% c("Black", "White"))
+```
+
+Fit a logistic regression model for Baltimore,MD and extract estimated OR and CI
+```{r}
+baltimore_df =
+  homicide_df %>%
+  filter(city_state == "Baltimore,MD" )
+
+baltimore_fit = 
+  glm(resolved ~ victim_age + victim_sex + victim_race, family = binomial, data = baltimore_df) %>%
+  broom::tidy() %>% 
+  mutate(
+    OR = exp(estimate),
+    conf.lower = exp(estimate - 1.96*std.error),
+    conf.upper = exp(estimate + 1.96*std.error)) %>%
+  filter(term == "victim_sexMale") %>%
+  select(term, OR, conf.lower, conf.upper)
+
+baltimore_fit
+```
+The estimate value of the adjusted odds ratio is `r baltimore_fit$OR`, the corresponding confidence interval is [`r baltimore_fit$conf.lower`,`r baltimore_fit$conf.upper`].
+
+Fit glm model for each of the citie 
+```{r}
+OR_function = function(city_df) {
+  
+  city_fit = 
+    glm(resolved ~ victim_age + victim_sex + victim_race, family = binomial, data = city_df) %>%
+  broom::tidy() %>% 
+  mutate(
+    OR = exp(estimate),
+    conf.lower = exp(estimate - 1.96*std.error),
+    conf.upper = exp(estimate + 1.96*std.error)) %>%
+  filter(term == "victim_sexMale") %>%
+  select(OR, conf.lower, conf.upper)
+  
+  return(city_fit)
+}
+```
+
+Apply the function to each of the cities and extract estimated ORs and their CIs
+```{r}
+results_df = 
+  homicide_df %>%
+  nest(data = uid:resolved) %>%
+  mutate(
+    fit_results = map(data, OR_function)) %>%
+  select(-data) %>%
+  unnest(fit_results)
+
+results_df %>%
+  knitr::kable(digits = 3)
+```
+
+Make the plot
+```{r}
+results_df %>%
+  mutate(
+    city_state = fct_reorder(city_state, OR)) %>%
+  ggplot(aes(x = city_state, y = OR)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.lower, ymax = conf.upper)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+  
 ```
 
