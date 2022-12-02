@@ -62,11 +62,11 @@ baltimore_fit =
 
 baltimore_fit
 ```
-The estimate value of the adjusted odds ratio is `r baltimore_fit$OR`, the corresponding confidence interval is [`r baltimore_fit$conf.lower`,`r baltimore_fit$conf.upper`].
+The estimate value of the adjusted odds ratio is `r baltimore_fit$OR`, the corresponding confidence interval is [`r baltimore_fit$conf.lower`, `r baltimore_fit$conf.upper`].
 
 #### Iterate over each of the cities
 
-* Build a function that takes city name as input and returns estimated OR and CIs.
+* Build a function that takes city name as input and returns estimated OR and CI.
 ```{r}
 OR_function = function(city_df) {
   
@@ -104,11 +104,21 @@ results_df %>%
   mutate(
     city_state = fct_reorder(city_state, OR)) %>%
   ggplot(aes(x = city_state, y = OR)) +
-  geom_point() +
+  geom_point() + 
+  labs(
+    title = "Estimated Odds Ratio and Confidence Interval for each Cities",
+    x = "City State",
+    y = "Odds Raio") +
   geom_errorbar(aes(ymin = conf.lower, ymax = conf.upper)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
   
 ```
+Comment on the plot: 
+
+* New York,NY has the lowest odds ratio, suggesting male in New York has the least odds of solving homicides compared with female in the same city.
+* Atlanta,GA has an odds ratio equal to 1, indicating it achieves gender equity in solving homicide problem.
+* Only five cities (Albuquerque,NM; Fresno,CA; Stockton,CA; Nashville,TN; Richmond,VA) have estimated odds ratio greater than 1; whereas all others have odds ratio smaller than 1, indicating males have significantly lower chances of solving homicides problems.
+* As estimated odds ratio grows, the corresponding CI is growing wider generally, especially for those with ORs>1; suggesting greater variability&uncertainty in the OR.
 
 ### Problem 3
 
@@ -135,7 +145,11 @@ birthwt_df =
   
   # drop the missing data
   drop_na()
+
+# check for mising data
+sum(!complete.cases(birthwt_df))
 ```
+There is no missing data.
 
 #### Model Fitting
 
@@ -146,7 +160,19 @@ min.model = lm(bwt ~ 1, data = birthwt_df)
 mod_forward = step(min.model, direction = 'forward', scope = (~ babysex + bhead + blength + delwt + fincome + frace + gaweeks + malform + menarche + mheight + momage + mrace + parity + pnumlbw + pnumsga + ppbmi + ppwt + smoken + wtgain))
 ```
 
-The resulting model contains the following predictors: head circumference, birth length, mother's race, mother's weight, gestational age, average number of cigarettes smoked, mother's BMI, baby sex, number of prior live birth, mother's pre-preganacy weight, monthly family income.
+The resulting model contains the following predictors: 
+
+* baby's head circumference
+* baby's length at birth
+* mother's race
+* mother's weight at delivery
+* gestational age in weeks
+* average number of cigarettes smoked per day during pregnancy
+* mother's BMI
+* baby's sex
+* number of prior live birth
+* mother's pre-preganacy weight
+* monthly family income
   
 * Final model
 ```{r}
@@ -187,7 +213,9 @@ cv_df =
     forward_mod = map(train, 
                       ~lm(bwt ~ bhead + blength + mrace + delwt + gaweeks + smoken + 
                            ppbmi + babysex + parity + ppwt + fincome, data = .x)),
+    
     main_mod = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
+    
     interaction_mod = map(train, ~lm(bwt ~ bhead + blength + babysex + 
                                           bhead*blength + bhead*babysex + blength*babysex + 
                                           bhead*blength*babysex, data = .x))) %>%
